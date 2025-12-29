@@ -1,0 +1,809 @@
+<!-- Chosen Palette: Warm Professional - Sand/Beige background (#fdfbf7), Navy Blue (#1e293b) for primary text/headers, Deep Green (#15803d) for growth/positive data, and Burnt Orange (#ea580c) for highlights/alerts. This creates a calm, trustworthy financial environment. -->
+
+<!-- Application Structure Plan: 
+    1. **Executive Dashboard (Hero):** Immediate context. Shows the user's specific financial inputs (£3k + £20k/yr) and the core "Risk-Based Strategy" visual. Goal: Orientation and confirmation of investment parameters.
+    2. **Strategy Simulator (Interactive):** A dynamic calculator section. Users can toggle between the "Lump Sum" (High Risk focus) and "Monthly" (Stability focus) views to see how the specific capital should be deployed. Visualized with a Doughnut chart (Chart.js) to show allocation percentages.
+    3. **Market Radar (Timeline):** A horizontal, scrollable or grid-based timeline forecast (6, 12, 24 months). Uses distinct cards to break down Macro vs. Micro trends. Goal: Contextualize *why* we are investing now.
+    4. **Stock Intelligence (Deep Dive):** A tabbed or grid interface for the specific company reports (ASML, NVDA, GOOGL, MSFT, META). Clicking a company updates a central detail view with "The Moat," "The Risks," and "The Verdict." This replaces the static wall of text in standard reports.
+    5. **Action Plan (Conclusion):** A checklist-style section for immediate next steps on the investment platform (Plum). 
+    
+    *Why this structure?* It moves from the "What" (Strategy) to the "When" (Market Context) to the "Who" (Stocks) and finally "How" (Execution), mirroring the investor's decision-making process.
+-->
+
+<!-- Visualization & Content Choices:
+    1. **Strategy Allocation (Doughnut Chart):** Goal: Inform/Organize. Method: Chart.js Doughnut. Interaction: Hover to see exact GBP amounts based on the input toggle. Justification: Best for showing part-to-whole relationships in a portfolio.
+    2. **Stock Performance/Rating (Radar/Bar Chart):** Goal: Compare. Method: Chart.js Radar (Risk vs Growth vs Moat vs Valuation). Interaction: Animation on load. Justification: visually compares abstract qualities of the stocks.
+    3. **Trend Timeline:** Goal: Change/Forecast. Method: Tailwind Grid with hover effects. Interaction: Simple hover expansion. Justification: Linear progression of time is best represented spatially.
+    4. **Interactive "Buy List":** Goal: Action. Method: Dynamic JS List. Interaction: Checkboxes for tracking.
+-->
+
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Investment Strategy & Market Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fdfbf7;
+            /* Warm sand */
+            color: #1e293b;
+            /* Slate 800 */
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-shadow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+        }
+
+        .tab-active {
+            border-bottom: 2px solid #ea580c;
+            color: #ea580c;
+            font-weight: 600;
+        }
+
+        .tab-inactive {
+            color: #64748b;
+        }
+
+        .tab-inactive:hover {
+            color: #1e293b;
+        }
+
+        /* Custom Scrollbar for horizontal sections */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl font-bold text-slate-800 tracking-tight">AI<span
+                        class="text-orange-600">.Invest</span></span>
+            </div>
+            <nav class="hidden md:flex space-x-8">
+                <button onclick="scrollToSection('strategy')"
+                    class="text-sm font-medium hover:text-orange-600 transition-colors">Strategy</button>
+                <button onclick="scrollToSection('market')"
+                    class="text-sm font-medium hover:text-orange-600 transition-colors">Market Radar</button>
+                <button onclick="scrollToSection('stocks')"
+                    class="text-sm font-medium hover:text-orange-600 transition-colors">Stock Analysis</button>
+                <button onclick="scrollToSection('action')"
+                    class="text-sm font-medium hover:text-orange-600 transition-colors">Action Plan</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-grow">
+
+        <!-- Hero / Intro -->
+        <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="text-center max-w-3xl mx-auto mb-10">
+                <h1 class="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4">Capitalizing on the AI
+                    Transformation</h1>
+                <p class="text-lg text-slate-600 leading-relaxed">
+                    A tailored investment report and interactive strategy tool designed for your <strong>£3,000
+                        immediate capital</strong> and <strong>ongoing monthly contributions</strong>.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl border border-gray-100 card-shadow">
+                    <div class="text-sm text-gray-500 uppercase font-semibold tracking-wider mb-1">Immediate Capital
+                    </div>
+                    <div class="text-3xl font-bold text-slate-800">£3,000</div>
+                    <div class="text-sm text-orange-600 mt-2 font-medium">Focus: High Growth / High Risk</div>
+                    <p class="text-xs text-gray-400 mt-1">Target Horizon: 8 Months</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-100 card-shadow">
+                    <div class="text-sm text-gray-500 uppercase font-semibold tracking-wider mb-1">Monthly Investment
+                    </div>
+                    <div class="text-3xl font-bold text-slate-800">~£1,600</div>
+                    <div class="text-sm text-green-600 mt-2 font-medium">Focus: Wealth Accumulation</div>
+                    <p class="text-xs text-gray-400 mt-1">Target Horizon: 5+ Years</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-gray-100 card-shadow">
+                    <div class="text-sm text-gray-500 uppercase font-semibold tracking-wider mb-1">Core Theme</div>
+                    <div class="text-3xl font-bold text-slate-800">AI Infrastructure</div>
+                    <div class="text-sm text-blue-600 mt-2 font-medium">Chips, Cloud & Energy</div>
+                    <p class="text-xs text-gray-400 mt-1">Strategy: Pick & Shovel Plays</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- STRATEGY SECTION -->
+        <section id="strategy" class="bg-white py-16 border-y border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-slate-900">Your Allocation Strategy</h2>
+                    <p class="mt-4 text-slate-600 max-w-3xl">
+                        This section breaks down how to split your capital. We use a "Core & Explore" approach.
+                        The <strong>Immediate Pot (£3k)</strong> takes aggressive bets on single stocks to maximize the
+                        8-month window.
+                        The <strong>Monthly Pot</strong> builds a resilient foundation with funds, while still
+                        allocating to high-conviction stocks.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+                    <!-- Left: Controls & Context -->
+                    <div class="space-y-6">
+                        <div class="flex space-x-2 bg-gray-100 p-1 rounded-lg inline-flex mb-4">
+                            <button id="btn-lumpsum" onclick="updateStrategy('lumpsum')"
+                                class="px-4 py-2 rounded-md text-sm font-semibold bg-white shadow-sm text-slate-800 transition-all">Immediate
+                                (£3k)</button>
+                            <button id="btn-monthly" onclick="updateStrategy('monthly')"
+                                class="px-4 py-2 rounded-md text-sm font-semibold text-gray-500 hover:text-slate-800 transition-all">Monthly
+                                Drip</button>
+                        </div>
+
+                        <div id="strategy-description" class="prose text-slate-600">
+                            <!-- Dynamic Text Content -->
+                        </div>
+
+                        <div class="bg-slate-50 p-6 rounded-lg border border-slate-100">
+                            <h3 class="font-bold text-slate-800 mb-3">Why this split?</h3>
+                            <ul id="strategy-rationale" class="space-y-2 text-sm text-slate-600 list-disc list-inside">
+                                <!-- Dynamic Rationale -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Right: Visualization -->
+                    <div
+                        class="bg-white p-4 rounded-xl border border-gray-100 card-shadow flex flex-col items-center justify-center">
+                        <h3 class="text-lg font-bold text-slate-700 mb-4 w-full text-center">Portfolio Composition</h3>
+                        <div class="chart-container">
+                            <canvas id="strategyChart"></canvas>
+                        </div>
+                        <div id="chart-legend" class="mt-6 grid grid-cols-2 gap-4 text-sm w-full px-4">
+                            <!-- Dynamic Legend -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MARKET RADAR SECTION -->
+        <section id="market" class="py-16 bg-[#fdfbf7]">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-10">
+                    <h2 class="text-3xl font-bold text-slate-900">Market Radar: The AI Cycle</h2>
+                    <p class="mt-4 text-slate-600 max-w-3xl">
+                        Understanding the timeline is critical. We are currently in the "Infrastructure Build-out"
+                        phase.
+                        This timeline forecasts the market shifts over the next 24 months to help you time your exits
+                        and entries.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- 6 Months -->
+                    <div class="bg-white p-6 rounded-xl border-t-4 border-orange-500 card-shadow">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold text-slate-800">Short Term</h3>
+                            <span class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold">0 - 6
+                                Months</span>
+                        </div>
+                        <h4 class="font-semibold text-sm text-slate-500 uppercase tracking-wide mb-2">Phase: Hardware
+                            Mania</h4>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Demand for GPUs (Nvidia) and manufacturing equipment (ASML) remains insatiable. Capital
+                            expenditure from Big Tech (Meta, Google, MSFT) is at peak levels.
+                        </p>
+                        <div class="bg-orange-50 p-3 rounded text-sm border border-orange-100">
+                            <strong>Trend:</strong> "Short the doubt." Volatility will be high, but the upward trend in
+                            chip stocks likely persists until earnings show a slowdown.
+                        </div>
+                    </div>
+
+                    <!-- 12 Months -->
+                    <div class="bg-white p-6 rounded-xl border-t-4 border-blue-500 card-shadow">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold text-slate-800">Medium Term</h3>
+                            <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">6 - 12
+                                Months</span>
+                        </div>
+                        <h4 class="font-semibold text-sm text-slate-500 uppercase tracking-wide mb-2">Phase: The "Show
+                            Me" Era</h4>
+                        <p class="text-slate-600 text-sm mb-4">
+                            Investors will start demanding ROI from AI. Software companies and "Edge AI" (AI on
+                            phones/laptops) become the focus. Infrastructure stocks may cool off.
+                        </p>
+                        <div class="bg-blue-50 p-3 rounded text-sm border border-blue-100">
+                            <strong>Pivot:</strong> Look to rotate some profits from chip manufacturers into software
+                            applications and AI-enabled services (Law, Education).
+                        </div>
+                    </div>
+
+                    <!-- 24 Months -->
+                    <div class="bg-white p-6 rounded-xl border-t-4 border-green-600 card-shadow">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold text-slate-800">Long Term</h3>
+                            <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">12 - 24
+                                Months</span>
+                        </div>
+                        <h4 class="font-semibold text-sm text-slate-500 uppercase tracking-wide mb-2">Phase:
+                            Normalization</h4>
+                        <p class="text-slate-600 text-sm mb-4">
+                            The "Bubble" may deflate slightly, consolidating around winners. Regulatory pressure on AI
+                            safety and copyright will peak. Energy constraints become the #1 bottleneck.
+                        </p>
+                        <div class="bg-green-50 p-3 rounded text-sm border border-green-100">
+                            <strong>Opportunity:</strong> Energy infrastructure (Schneider, Vertiv) and Sovereign AI
+                            (Governments building their own clouds) become key drivers.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- STOCK DEEP DIVE SECTION -->
+        <section id="stocks" class="bg-white py-16 border-y border-gray-100">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-slate-900">Deep Dive Analysis</h2>
+                    <p class="mt-4 text-slate-600 max-w-3xl">
+                        Detailed analysis of your candidate stocks. Click through the tabs to see the rationale, risks,
+                        and my verdict for each.
+                    </p>
+                </div>
+
+                <div class="flex flex-col lg:flex-row gap-8">
+                    <!-- Stock Selection List -->
+                    <div
+                        class="w-full lg:w-1/4 flex lg:flex-col overflow-x-auto lg:overflow-visible gap-2 pb-4 lg:pb-0 custom-scrollbar">
+                        <button onclick="loadStock('ASML')"
+                            class="stock-btn text-left p-4 rounded-lg border border-gray-200 hover:bg-slate-50 transition-all focus:outline-none ring-offset-2 focus:ring-2 ring-orange-500 bg-orange-50 border-orange-200"
+                            id="btn-ASML">
+                            <div class="font-bold text-slate-800">ASML Holding</div>
+                            <div class="text-xs text-gray-500">Semiconductor Equipment</div>
+                        </button>
+                        <button onclick="loadStock('NVDA')"
+                            class="stock-btn text-left p-4 rounded-lg border border-gray-200 hover:bg-slate-50 transition-all focus:outline-none"
+                            id="btn-NVDA">
+                            <div class="font-bold text-slate-800">NVIDIA</div>
+                            <div class="text-xs text-gray-500">Chips / AI Hardware</div>
+                        </button>
+                        <button onclick="loadStock('GOOGL')"
+                            class="stock-btn text-left p-4 rounded-lg border border-gray-200 hover:bg-slate-50 transition-all focus:outline-none"
+                            id="btn-GOOGL">
+                            <div class="font-bold text-slate-800">Alphabet (Google)</div>
+                            <div class="text-xs text-gray-500">Search / Cloud / AI Models</div>
+                        </button>
+                        <button onclick="loadStock('MSFT')"
+                            class="stock-btn text-left p-4 rounded-lg border border-gray-200 hover:bg-slate-50 transition-all focus:outline-none"
+                            id="btn-MSFT">
+                            <div class="font-bold text-slate-800">Microsoft</div>
+                            <div class="text-xs text-gray-500">Enterprise SW / Cloud</div>
+                        </button>
+                        <button onclick="loadStock('META')"
+                            class="stock-btn text-left p-4 rounded-lg border border-gray-200 hover:bg-slate-50 transition-all focus:outline-none"
+                            id="btn-META">
+                            <div class="font-bold text-slate-800">Meta</div>
+                            <div class="text-xs text-gray-500">Social / Open Source AI</div>
+                        </button>
+                    </div>
+
+                    <!-- Detail View -->
+                    <div
+                        class="w-full lg:w-3/4 bg-white border border-gray-200 rounded-xl p-6 lg:p-8 card-shadow relative">
+                        <!-- Content injected via JS -->
+                        <div id="stock-content">
+                            <!-- Header -->
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <h3 class="text-3xl font-bold text-slate-900" id="stock-name">ASML Holding NV</h3>
+                                    <span
+                                        class="inline-block mt-2 bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-mono"
+                                        id="stock-ticker">Ticker: ASML</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm text-gray-500">Risk Profile</div>
+                                    <div class="font-bold text-orange-600" id="stock-risk">Medium-High</div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                <div>
+                                    <h4 class="font-bold text-slate-800 border-b border-gray-100 pb-2 mb-3">The Moat
+                                        (Bull Case)</h4>
+                                    <p class="text-sm text-slate-600 leading-relaxed" id="stock-bull">
+                                        ASML is the definition of a monopoly. They are the <strong>only company in the
+                                            world</strong> capable of manufacturing Extreme Ultraviolet (EUV)
+                                        lithography machines, which are required to print the most advanced chips
+                                        (Nvidia's, Apple's). Without ASML, the AI revolution physically stops. They are
+                                        the ultimate "shovel seller."
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800 border-b border-gray-100 pb-2 mb-3">The Risks
+                                        (Bear Case)</h4>
+                                    <p class="text-sm text-slate-600 leading-relaxed" id="stock-bear">
+                                        Geopolitics is the biggest threat. Export restrictions to China (a huge market)
+                                        are tightening. Additionally, the machinery is incredibly expensive ($300M+ per
+                                        unit), meaning a global recession could cause customers like Intel or TSMC to
+                                        delay orders, leading to cyclical revenue dips.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Metrics Visual -->
+                            <div class="mb-8">
+                                <h4 class="font-bold text-slate-800 mb-4">Strategic Fit Analysis</h4>
+                                <div class="chart-container" style="height: 250px;">
+                                    <canvas id="stockRadar"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 border-l-4 border-orange-500 p-4">
+                                <h4 class="font-bold text-slate-800 mb-1">Analyst Verdict</h4>
+                                <p class="text-sm text-slate-700" id="stock-verdict">
+                                    <strong>Buy for Long Term.</strong> For your 8-month horizon, it might be volatile
+                                    due to tech sector rotation, but it is one of the safest single-stock bets in the
+                                    semiconductor supply chain over 5 years. It is less "frothy" than Nvidia.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ACTION PLAN SECTION -->
+        <section id="action" class="py-16 bg-[#fdfbf7]">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-10">
+                    <h2 class="text-3xl font-bold text-slate-900">Your Investment Plan</h2>
+                    <p class="text-slate-600">Specific recommendations for your Plum portfolio or chosen platform.</p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- Step 1: Immediate -->
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div class="bg-slate-800 px-6 py-4 flex justify-between items-center">
+                            <h3 class="text-white font-bold text-lg">1. The £3,000 Lump Sum</h3>
+                            <span class="text-orange-400 text-sm font-semibold">Immediate Execution</span>
+                        </div>
+                        <div class="p-6">
+                            <p class="text-sm text-gray-600 mb-4">Objective: Maximize growth over 8 months. High
+                                volatility accepted.</p>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left">
+                                    <thead class="text-xs text-gray-500 uppercase bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-3">Asset</th>
+                                            <th class="px-4 py-3">Allocation</th>
+                                            <th class="px-4 py-3">Amount</th>
+                                            <th class="px-4 py-3">Why?</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-slate-900">NVIDIA (NVDA)</td>
+                                            <td class="px-4 py-3 text-orange-600 font-bold">40%</td>
+                                            <td class="px-4 py-3">£1,200</td>
+                                            <td class="px-4 py-3 text-gray-600">Purest exposure to current AI mania.
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-slate-900">ASML Holding (ASML)</td>
+                                            <td class="px-4 py-3 text-orange-600 font-bold">30%</td>
+                                            <td class="px-4 py-3">£900</td>
+                                            <td class="px-4 py-3 text-gray-600">Critical infrastructure monopoly.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-slate-900">Broadcom (AVGO)</td>
+                                            <td class="px-4 py-3 text-orange-600 font-bold">20%</td>
+                                            <td class="px-4 py-3">£600</td>
+                                            <td class="px-4 py-3 text-gray-600">Networking chips for AI clusters +
+                                                Software.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-slate-900">Vertiv (VRT) / Schneider
+                                            </td>
+                                            <td class="px-4 py-3 text-orange-600 font-bold">10%</td>
+                                            <td class="px-4 py-3">£300</td>
+                                            <td class="px-4 py-3 text-gray-600">Data center cooling/power play.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Monthly -->
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div class="bg-green-700 px-6 py-4 flex justify-between items-center">
+                            <h3 class="text-white font-bold text-lg">2. The ~£1,600 Monthly Drip</h3>
+                            <span class="text-green-200 text-sm font-semibold">Recurring Investment</span>
+                        </div>
+                        <div class="p-6">
+                            <p class="text-sm text-gray-600 mb-4">Objective: Lower risk, consistent accumulation via
+                                Funds + High Conviction Stocks.</p>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left">
+                                    <thead class="text-xs text-gray-500 uppercase bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-3">Asset / Fund Type</th>
+                                            <th class="px-4 py-3">Allocation</th>
+                                            <th class="px-4 py-3">Amount</th>
+                                            <th class="px-4 py-3">Why?</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-slate-900">Vanguard S&P 500 Info Tech
+                                                (or similar Tech fund)</td>
+                                            <td class="px-4 py-3 text-green-600 font-bold">40%</td>
+                                            <td class="px-4 py-3">£640</td>
+                                            <td class="px-4 py-3 text-gray-600">Broad exposure to big tech winners.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-slate-900">Vanguard FTSE Global All
+                                                Cap (Low Risk)</td>
+                                            <td class="px-4 py-3 text-green-600 font-bold">30%</td>
+                                            <td class="px-4 py-3">£480</td>
+                                            <td class="px-4 py-3 text-gray-600">Safety net. Diversified across all
+                                                sectors.</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-slate-900">Alphabet (GOOGL)</td>
+                                            <td class="px-4 py-3 text-green-600 font-bold">15%</td>
+                                            <td class="px-4 py-3">£240</td>
+                                            <td class="px-4 py-3 text-gray-600">Value play in AI. Less risky than NVDA.
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td class="px-4 py-3 font-medium text-slate-900">Microsoft (MSFT)</td>
+                                            <td class="px-4 py-3 text-green-600 font-bold">15%</td>
+                                            <td class="px-4 py-3">£240</td>
+                                            <td class="px-4 py-3 text-gray-600">Enterprise stability + AI growth.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800 text-center">
+                    <strong>Note on Platform:</strong> Since you use <strong>Plum</strong>, search for the specific
+                    Tickers (NVDA, ASML). If Plum does not support specific European stocks like ASML or Schneider
+                    easily, consider opening a <strong>Trading212</strong> or <strong>Freetrade</strong> ISA for the
+                    single-stock portion, keeping your funds in Plum for simplicity.
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-slate-400 text-sm mb-4">Generated for Personal Investment Research. Not Financial Advice.</p>
+            <p class="text-slate-600 text-xs">Market data and analysis are simulated based on late 2024/2025
+                projections.</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- Data & State ---
+        const stockData = {
+            ASML: {
+                name: "ASML Holding NV",
+                ticker: "ASML",
+                risk: "Medium-High",
+                bull: "ASML is the definition of a monopoly. They are the <strong>only company in the world</strong> capable of manufacturing Extreme Ultraviolet (EUV) lithography machines, which are required to print the most advanced chips (Nvidia's, Apple's). Without ASML, the AI revolution physically stops. They are the ultimate 'shovel seller.'",
+                bear: "Geopolitics is the biggest threat. Export restrictions to China (a huge market) are tightening. Additionally, the machinery is incredibly expensive ($300M+ per unit), meaning a global recession could cause customers like Intel or TSMC to delay orders, leading to cyclical revenue dips.",
+                verdict: "<strong>Buy for Long Term.</strong> For your 8-month horizon, it might be volatile due to tech sector rotation, but it is one of the safest single-stock bets in the semiconductor supply chain over 5 years. It is less 'frothy' than Nvidia.",
+                scores: [9, 7, 10, 5] // Growth, Value, Moat, Stability
+            },
+            NVDA: {
+                name: "NVIDIA Corp",
+                ticker: "NVDA",
+                risk: "High",
+                bull: "NVIDIA is currently the undisputed king of AI. Their H100/Blackwell chips have a massive lead in performance and software ecosystem (CUDA). Demand exceeds supply for the foreseeable future. They have pricing power and enormous margins.",
+                bear: "Valuation is perfection-priced. Any sign of demand slowing, or competition (AMD, Google TPU, Amazon Trainium) eating into margins, could cause a 20-30% correction. It is a crowded trade.",
+                verdict: "<strong>Buy for Momentum.</strong> Essential for the £3k 'High Risk' pot. Ride the bubble, but set a trailing stop-loss if possible. Expect volatility.",
+                scores: [10, 3, 9, 4]
+            },
+            GOOGL: {
+                name: "Alphabet Inc.",
+                ticker: "GOOGL",
+                risk: "Medium",
+                bull: "Alphabet is arguably the most undervalued AI play. They have the data (Search, YouTube), the infrastructure (TPUs), and the talent (DeepMind). Gemini is rapidly catching up to GPT-4. Cloud revenue is accelerating.",
+                bear: "Regulatory antitrust lawsuits are a serious overhang (potential breakup of Ad business). Search disruption from ChatGPT/Perplexity is a long-term existential risk.",
+                verdict: "<strong>Strong Accumulate.</strong> A perfect candidate for your monthly ongoing investment. It offers AI exposure with a safety margin due to its lower P/E ratio compared to NVDA/MSFT.",
+                scores: [7, 8, 8, 8]
+            },
+            MSFT: {
+                name: "Microsoft Corp",
+                ticker: "MSFT",
+                risk: "Low-Medium",
+                bull: "Microsoft is the best at monetizing AI immediately through Copilot in Office 365 and Azure. They have deep entrenchment in enterprise IT. Their partnership with OpenAI gives them a front-row seat to the best models.",
+                bear: "Valuation is rich. They are heavily dependent on OpenAI's stability (as seen in the Altman firing saga). Azure growth needs to justify the massive CapEx spending.",
+                verdict: "<strong>Core Holding.</strong> The 'Safest' AI stock. Include this in the monthly investment pot for stability and dividends.",
+                scores: [8, 5, 9, 9]
+            },
+            META: {
+                name: "Meta Platforms",
+                ticker: "META",
+                risk: "Medium-High",
+                bull: "Meta has the best open-source AI strategy (Llama). This builds a developer ecosystem around them. Their core ad business is a cash machine that funds their AI/Metaverse spending. AI is improving their ad targeting significantly.",
+                bear: "Capital Expenditure is out of control. Mark Zuckerberg has a history of burning cash on unproven bets (Metaverse). Regulatory risks regarding social media safety persist.",
+                verdict: "<strong>Hold/Watch.</strong> Good potential, but for your specific strategy, Alphabet offers better value and Nvidia offers better growth. Maybe a smaller allocation.",
+                scores: [8, 6, 7, 6]
+            }
+        };
+
+        const strategyData = {
+            lumpsum: {
+                labels: ['NVIDIA (High Risk)', 'ASML (Med/High)', 'Broadcom (Med/High)', 'Energy/Infra (High)'],
+                data: [40, 30, 20, 10],
+                amounts: [1200, 900, 600, 300],
+                bgColors: ['#ea580c', '#f97316', '#fb923c', '#fdba74'],
+                desc: "<strong>Aggressive Growth Focus.</strong> For the £3,000 with an 8-month horizon, we are prioritizing stocks with high 'Beta' (volatility) and direct exposure to the current hardware super-cycle. This is a high-risk, high-reward allocation.",
+                rationale: `
+                    <li><strong>40% NVIDIA:</strong> The market leader. If the bubble continues for 8 months, this captures the most upside.</li>
+                    <li><strong>30% ASML:</strong> A monopoly play. High growth but slightly more defensive than Nvidia.</li>
+                    <li><strong>20% Broadcom:</strong> Diversification into networking chips and software.</li>
+                    <li><strong>10% Infra:</strong> A bet on the physical constraints (power/cooling) of AI data centers.</li>
+                `
+            },
+            monthly: {
+                labels: ['Tech Sector Fund (Med)', 'Global All Cap Fund (Low)', 'Microsoft (Med)', 'Google (Med)'],
+                data: [40, 30, 15, 15],
+                amounts: [640, 480, 240, 240], // based on 1600
+                bgColors: ['#15803d', '#16a34a', '#22c55e', '#4ade80'],
+                desc: "<strong>Wealth Accumulation Focus.</strong> For the ongoing monthly ~£1,600, we shift to 'Core & Explore'. The majority (70%) goes into diversified funds to protect capital, while 30% targets high-quality AI software giants.",
+                rationale: `
+                    <li><strong>40% Tech Fund:</strong> Captures the whole sector (Apple, NVDA, MSFT, etc.) without picking a single winner.</li>
+                    <li><strong>30% Global All Cap:</strong> Your safety net. Ensures you own the rest of the economy (Healthcare, Finance, etc.).</li>
+                    <li><strong>30% Big Tech (MSFT/GOOGL):</strong> Overweighting the strongest software AI players who will monetize the chips over the next 5 years.</li>
+                `
+            }
+        };
+
+        // --- Chart Objects ---
+        let strategyChartInstance = null;
+        let stockRadarInstance = null;
+
+        // --- Functions ---
+
+        function initStrategyChart() {
+            const ctx = document.getElementById('strategyChart').getContext('2d');
+            strategyChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: strategyData.lumpsum.labels,
+                    datasets: [{
+                        data: strategyData.lumpsum.data,
+                        backgroundColor: strategyData.lumpsum.bgColors,
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false // Custom legend used
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    let val = context.parsed;
+                                    let amounts = strategyData.current === 'monthly' ? strategyData.monthly.amounts : strategyData.lumpsum.amounts;
+                                    let symbol = strategyData.current === 'monthly' ? '~£' : '£';
+                                    label += val + '% (' + symbol + amounts[context.dataIndex] + ')';
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            strategyData.current = 'lumpsum'; // Set default state
+            updateLegend('lumpsum');
+            updateStrategyText('lumpsum');
+        }
+
+        function updateStrategy(type) {
+            // Update UI Buttons
+            const btnLump = document.getElementById('btn-lumpsum');
+            const btnMonth = document.getElementById('btn-monthly');
+
+            if (type === 'lumpsum') {
+                btnLump.className = "px-4 py-2 rounded-md text-sm font-semibold bg-white shadow-sm text-slate-800 transition-all";
+                btnMonth.className = "px-4 py-2 rounded-md text-sm font-semibold text-gray-500 hover:text-slate-800 transition-all";
+            } else {
+                btnMonth.className = "px-4 py-2 rounded-md text-sm font-semibold bg-white shadow-sm text-slate-800 transition-all";
+                btnLump.className = "px-4 py-2 rounded-md text-sm font-semibold text-gray-500 hover:text-slate-800 transition-all";
+            }
+
+            // Update Chart Data
+            const data = strategyData[type];
+            strategyChartInstance.data.labels = data.labels;
+            strategyChartInstance.data.datasets[0].data = data.data;
+            strategyChartInstance.data.datasets[0].backgroundColor = data.bgColors;
+            strategyChartInstance.update();
+
+            strategyData.current = type;
+            updateLegend(type);
+            updateStrategyText(type);
+        }
+
+        function updateLegend(type) {
+            const container = document.getElementById('chart-legend');
+            const data = strategyData[type];
+            let html = '';
+
+            data.labels.forEach((label, index) => {
+                let amount = data.amounts[index];
+                let symbol = type === 'monthly' ? '~£' : '£';
+                html += `
+                    <div class="flex items-center">
+                        <span class="w-3 h-3 rounded-full mr-2" style="background-color: ${data.bgColors[index]}"></span>
+                        <div class="flex flex-col">
+                            <span class="font-semibold text-slate-700">${label}</span>
+                            <span class="text-xs text-gray-500">${data.data[index]}% (${symbol}${amount})</span>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function updateStrategyText(type) {
+            document.getElementById('strategy-description').innerHTML = `<p>${strategyData[type].desc}</p>`;
+            document.getElementById('strategy-rationale').innerHTML = strategyData[type].rationale;
+        }
+
+        function initStockRadar() {
+            const ctx = document.getElementById('stockRadar').getContext('2d');
+            stockRadarInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Growth Potential', 'Value (Price)', 'Economic Moat', 'Stability'],
+                    datasets: [{
+                        label: 'Score (1-10)',
+                        data: [0, 0, 0, 0],
+                        fill: true,
+                        backgroundColor: 'rgba(234, 88, 12, 0.2)',
+                        borderColor: 'rgb(234, 88, 12)',
+                        pointBackgroundColor: 'rgb(234, 88, 12)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(234, 88, 12)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: {
+                                color: '#e2e8f0'
+                            },
+                            grid: {
+                                color: '#e2e8f0'
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 11,
+                                    family: "'Inter', sans-serif"
+                                },
+                                color: '#64748b'
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 10,
+                            ticks: {
+                                stepSize: 2,
+                                backdropColor: 'transparent'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function loadStock(ticker) {
+            // Update Active Tab UI
+            document.querySelectorAll('.stock-btn').forEach(btn => {
+                btn.classList.remove('bg-orange-50', 'border-orange-200', 'ring-2', 'ring-orange-500', 'ring-offset-2');
+                btn.classList.add('border-gray-200');
+            });
+            const activeBtn = document.getElementById(`btn-${ticker}`);
+            activeBtn.classList.remove('border-gray-200');
+            activeBtn.classList.add('bg-orange-50', 'border-orange-200', 'ring-2', 'ring-orange-500', 'ring-offset-2');
+
+            // Data Update
+            const data = stockData[ticker];
+
+            // Text Elements
+            document.getElementById('stock-name').textContent = data.name;
+            document.getElementById('stock-ticker').textContent = `Ticker: ${data.ticker}`;
+            document.getElementById('stock-risk').textContent = data.risk;
+            document.getElementById('stock-bull').innerHTML = data.bull;
+            document.getElementById('stock-bear').innerHTML = data.bear;
+            document.getElementById('stock-verdict').innerHTML = data.verdict;
+
+            // Chart Update
+            stockRadarInstance.data.datasets[0].data = data.scores;
+            stockRadarInstance.update();
+        }
+
+        function scrollToSection(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // --- Initialization ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initStrategyChart();
+            initStockRadar();
+            loadStock('ASML'); // Default load
+        });
+
+    </script>
+</body>
+
+</html>
